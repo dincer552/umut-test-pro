@@ -1,0 +1,105 @@
+name: Build Test Kontrol
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet packages
+        shell: pwsh
+        run: nuget restore TestKontrolProg.sln
+
+      - name: Stamp build version
+        shell: pwsh
+        env:
+          BUILD_VERSION: 1.0.0.${{ github.run_number }}
+        run: |
+          $path = 'TestKontrolProg/Properties/AssemblyInfo.cs'
+          $text = Get-Content -Path $path -Raw -Encoding UTF8
+          $text = [regex]::Replace($text, '\[assembly: AssemblyVersion\("[^"]+"\)\]', "[assembly: AssemblyVersion(\"$env:BUILD_VERSION\")]")
+          $text = [regex]::Replace($text, '\[assembly: AssemblyFileVersion\("[^"]+"\)\]', "[assembly: AssemblyFileVersion(\"$env:BUILD_VERSION\")]")
+          Set-Content -Path $path -Value $text -Encoding UTF8
+          Get-Content -Path $path | Select-String 'Assembly(Version|FileVersion)'
+
+      - name: Build Release
+        shell: pwsh
+        run: msbuild TestKontrolProg.sln /m /p:Configuration=Release /p:Platform=AnyCPU
+
+      - name: Verify updater build
+        shell: pwsh
+        run: |
+          $exe = 'TestKontrolProg/bin/Release/TestKontrolProg.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "TestKontrolProg.exe was not produced." }
+          $version = (Get-Item $exe).VersionInfo.FileVersion
+          Write-Host "TestKontrolProg.exe version: $version"
+          if (-not $version.StartsWith('1.0.0.')) { throw "Unexpected build version: $version" }
+
+      - name: Package Test Kontrol
+        shell: pwsh
+        env:
+          BUILD_VERSION: 1.0.0.${{ github.run_number }}
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path 'TestKontrolProg/bin/Release/*' -DestinationPath "dist/TestKontrolProg_$env:BUILD_VERSION.zip" -CompressionLevel Optimal
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestKontrolProg_Windows
+          path: dist/TestKontrolProg_*.zip
+
+  deploy-vm:
+    needs: build-windows
+    runs-on: self-hosted
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: TestKontrolProg_Windows
+          path: update-dist
+
+      - name: Publish Test Kontrol update manifest
+        shell: bash
+        env:
+          UPDATE_ROOT: /var/www/pdf-selector-updates/test-kontrol
+          BUILD_SHA: ${{ github.sha }}
+          VERSION: 1.0.0.${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$UPDATE_ROOT"
+          zip="$(find update-dist -maxdepth 1 -type f -name 'TestKontrolProg_*.zip' -print -quit)"
+          test -n "$zip"
+          name="$(basename "$zip")"
+          size="$(stat -c '%s' "$zip")"
+          sha="$(sha256sum "$zip" | awk '{print $1}')"
+          chunk_prefix="${name}.part"
+          rm -f "$UPDATE_ROOT/${chunk_prefix}"* "$UPDATE_ROOT/TestKontrolProg_*.zip" "$UPDATE_ROOT/manifest.json"
+          install -m 0644 "$zip" "$UPDATE_ROOT/$name"
+          split -b 256k -d -a 3 "$zip" "$UPDATE_ROOT/.${chunk_prefix}"
+          chunks_json="["
+          index=0
+          for chunk in "$UPDATE_ROOT"/.${chunk_prefix}*; do
+            public_name="${chunk_prefix}$(printf '%03d' "$index")"
+            mv -f "$chunk" "$UPDATE_ROOT/$public_name"
+            chunk_size="$(stat -c '%s' "$UPDATE_ROOT/$public_name")"
+            if [ "$index" -gt 0 ]; then chunks_json+=","; fi
+            chunks_json+="{\"file\":\"$public_name\",\"size\":$chunk_size}"
+            index=$((index + 1))
+          done
+          chunks_json+="]"
+          printf '{"version":"%s","build":"%s","file":"%s","size":%s,"sha256":"%s","chunks":%s}\n' "$VERSION" "$BUILD_SHA" "$name" "$size" "$sha" "$chunks_json" > "$UPDATE_ROOT/.manifest.json.tmp"
+          mv -f "$UPDATE_ROOT/.manifest.json.tmp" "$UPDATE_ROOT/manifest.json"
+          echo "Published $VERSION ($BUILD_SHA)"
+          cat "$UPDATE_ROOT/manifest.json"
