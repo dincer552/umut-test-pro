@@ -103,7 +103,6 @@ namespace TestKontrolProg
 
         private void SensorDatasTake(GroupBox groupBox, Dictionary<string, string> sensorDict)
         {
-            // TextBox'ları Tag (key adı) sırasına göre al – ister alfabetik ister başka kritere göre
             var textBoxes = groupBox.Controls
                                     .OfType<TextBox>()
                                     .OrderBy(tb => tb.Tag?.ToString())
@@ -114,7 +113,6 @@ namespace TestKontrolProg
                 string key = tb.Tag?.ToString();
                 if (string.IsNullOrEmpty(key)) continue;
 
-                // Boşsa "-", doluysa kendi string değeri
                 string value1 = string.IsNullOrWhiteSpace(tb.Text) ? "-" : tb.Text.Trim();
 
                 if (value1 != "-" && !double.TryParse(value1, out _))
@@ -145,17 +143,31 @@ namespace TestKontrolProg
     internal static class C600Communication
     {
         private const string ScopeBaseUrl = "http://127.0.0.1:4242";
+        private const string JsonUsername = "ADMIN";
+        private const string JsonPin = "6000";
+        private const string JsonLanguage = "0";
+        private const string JsonUser = "2";
 
         public static async Task<string> ReadValueAsync(string jsonId)
         {
             if (string.IsNullOrWhiteSpace(jsonId))
                 throw new ArgumentException("JSON ID boş olamaz.", "jsonId");
 
-            string url = ScopeBaseUrl + "/json.html?callback=?&fn=Read&id=" + Uri.EscapeDataString(jsonId);
+            string password = Environment.GetEnvironmentVariable("C600_JSON_PASSWORD");
+            if (string.IsNullOrWhiteSpace(password))
+                throw new InvalidOperationException("C600 JSON şifresi bulunamadı. Windows ortam değişkeni olarak C600_JSON_PASSWORD tanımlayın.");
+
+            string url = ScopeBaseUrl
+                + "/json.html?callback=?&fn=Read"
+                + "&pin=" + Uri.EscapeDataString(JsonPin)
+                + "&lng=" + Uri.EscapeDataString(JsonLanguage)
+                + "&us=" + Uri.EscapeDataString(JsonUser)
+                + "&id=" + Uri.EscapeDataString(jsonId);
 
             using (var client = new WebClient())
             {
                 client.Encoding = Encoding.UTF8;
+                client.Credentials = new NetworkCredential(JsonUsername, password);
                 string response = await client.DownloadStringTaskAsync(new Uri(url));
                 return ParseValue(response);
             }
