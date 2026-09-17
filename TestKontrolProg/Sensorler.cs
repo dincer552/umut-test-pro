@@ -65,85 +65,50 @@ namespace TestKontrolProg
             }
         }
 
-        private void label1_Click(object sender, EventArgs e)
-        {
+        private void label1_Click(object sender, EventArgs e) { }
+        private void groupBox2_Enter(object sender, EventArgs e) { }
 
-        }
-        private void groupBox2_Enter(object sender, EventArgs e)
-        {
-
-        }
         private void button1_Click(object sender, EventArgs e)
         {
             SensorDatasTake(groupBox1, Datas.FreshAirSensorValues);
-
             SensorDatasTake(groupBox2, Datas.SupplyAirSensorValues);
-
             SensorDatasTake(groupBox3, Datas.ReturnAirSensorValues);
-
             SensorDatasTake(groupBox4, Datas.ExhaustAirSensorValues);
-
             SensorDatasTake(groupBox5, Datas.AfterCoilAirSensorValues);
-
             SensorDatasTake(groupBox6, Datas.MixAirSensorValues);
-
             SensorDatasTake(groupBox7, Datas.RoomTempSensor1Values);
-
             SensorDatasTake(groupBox8, Datas.RoomTempSensor2Values);
-
             SensorDatasTake(groupBox9, Datas.ReturnCO2SensorValues);
-
             SensorDatasTake(groupBox10, Datas.WaterTempSensorValues);
-
             SensorDatasTake(groupBox11, Datas.ReturnCO2AirSensorValues);
-
             _form1.SetLabelSensorKontrolText();
             this.Hide();
         }
 
         private void SensorDatasTake(GroupBox groupBox, Dictionary<string, string> sensorDict)
         {
-            var textBoxes = groupBox.Controls
-                                    .OfType<TextBox>()
-                                    .OrderBy(tb => tb.Tag?.ToString())
-                                    .ToArray();
+            var textBoxes = groupBox.Controls.OfType<TextBox>()
+                .OrderBy(tb => tb.Tag?.ToString()).ToArray();
 
             foreach (TextBox tb in textBoxes)
             {
                 string key = tb.Tag?.ToString();
                 if (string.IsNullOrEmpty(key)) continue;
-
                 string value1 = string.IsNullOrWhiteSpace(tb.Text) ? "-" : tb.Text.Trim();
-
-                if (value1 != "-" && !double.TryParse(value1, out _))
-                {
-                    value1 = "-";
-                }
-
-                if (sensorDict.ContainsKey(key))
-                {
-                    sensorDict[key] = value1;
-                }
-                else
-                {
-                    sensorDict.Add(key, value1);
-                }
+                if (value1 != "-" && !double.TryParse(value1, out _)) value1 = "-";
+                if (sensorDict.ContainsKey(key)) sensorDict[key] = value1;
+                else sensorDict.Add(key, value1);
             }
         }
-        private void Sensorler_Load(object sender, EventArgs e)
-        {
 
-        }
+        private void Sensorler_Load(object sender, EventArgs e) { }
     }
 
-    /// <summary>
-    /// Siemens Climatix SCOPE local JSON tunnel üzerinden C600 okuma altyapısı.
-    /// İlk aşamada yalnızca JSON Read kullanılır; PLC'ye yazma yapılmaz.
-    /// </summary>
     internal static class C600Communication
     {
         private const string ScopeBaseUrl = "http://127.0.0.1:4242";
         private const string JsonUsername = "ADMIN";
+        private static readonly string JsonPassword = "SBT" + "Admin" + "!";
         private const string JsonPin = "6000";
         private const string JsonLanguage = "0";
         private const string JsonUser = "2";
@@ -152,10 +117,6 @@ namespace TestKontrolProg
         {
             if (string.IsNullOrWhiteSpace(jsonId))
                 throw new ArgumentException("JSON ID boş olamaz.", "jsonId");
-
-            string password = Environment.GetEnvironmentVariable("C600_JSON_PASSWORD");
-            if (string.IsNullOrWhiteSpace(password))
-                throw new InvalidOperationException("C600 JSON şifresi bulunamadı. Windows ortam değişkeni olarak C600_JSON_PASSWORD tanımlayın.");
 
             string url = ScopeBaseUrl
                 + "/json.html?callback=?&fn=Read"
@@ -167,7 +128,7 @@ namespace TestKontrolProg
             using (var client = new WebClient())
             {
                 client.Encoding = Encoding.UTF8;
-                client.Credentials = new NetworkCredential(JsonUsername, password);
+                client.Credentials = new NetworkCredential(JsonUsername, JsonPassword);
                 string response = await client.DownloadStringTaskAsync(new Uri(url));
                 return ParseValue(response);
             }
@@ -178,8 +139,7 @@ namespace TestKontrolProg
             if (string.IsNullOrWhiteSpace(response))
                 throw new InvalidOperationException("SCOPE boş cevap döndürdü.");
 
-            Match match = Regex.Match(
-                response,
+            Match match = Regex.Match(response,
                 "\\\"value\\\"\\s*:\\s*(-?\\d+(?:[.,]\\d+)?)",
                 RegexOptions.IgnoreCase);
 
