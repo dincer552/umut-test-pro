@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -33,7 +33,7 @@ namespace TestKontrolProg
                 Name = "buttonC600Read",
                 Text = "Verileri Çek",
                 Size = new Size(100, 30),
-                Location = new Point(282, 360),
+                Location = new System.Drawing.Point(282, 360),
                 UseVisualStyleBackColor = true
             };
             _c600ReadButton.Click += C600ReadButton_Click;
