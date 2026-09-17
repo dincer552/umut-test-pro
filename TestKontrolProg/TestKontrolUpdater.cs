@@ -21,7 +21,6 @@ namespace TestKontrolProg
         private static readonly HttpClient Http = CreateHttpClient();
         private static Button _button;
         private static Form _owner;
-        private static UpdateManifest _available;
         private static bool _busy;
 
         private static HttpClient CreateHttpClient()
@@ -65,35 +64,24 @@ namespace TestKontrolProg
                 var current = GetCurrentVersion();
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.Version))
                 {
-                    _available = null;
                     SetButton("GÜNCELLE", false);
-                    if (interactive)
-                        MessageBox.Show(_owner, "Güncelleme bilgisi alınamadı.", ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (interactive) MessageBox.Show(_owner, "Güncelleme bilgisi alınamadı.", ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (CompareVersions(manifest.Version, current) <= 0)
                 {
-                    _available = null;
                     SetButton("GÜNCELLE", false);
-                    if (interactive)
-                        MessageBox.Show(_owner, "Test Kontrol zaten güncel.", ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    if (interactive) MessageBox.Show(_owner, "Test Kontrol zaten güncel.", ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
-                _available = manifest;
                 SetButton("GÜNCELLE *", false);
-                if (!interactive)
-                {
-                    return;
-                }
+                if (!interactive) return;
 
-                var answer = MessageBox.Show(
-                    _owner,
+                var answer = MessageBox.Show(_owner,
                     "Yeni Test Kontrol sürümü bulundu: " + manifest.Version + "\n\nŞimdi indirip kurmak ister misiniz?",
-                    ProductName + " güncelleme",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Information);
+                    ProductName + " güncelleme", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
                 if (answer != DialogResult.Yes) return;
 
                 await DownloadAndInstallAsync(manifest);
@@ -101,8 +89,7 @@ namespace TestKontrolProg
             catch (Exception ex)
             {
                 SetButton("GÜNCELLE", false);
-                if (interactive)
-                    MessageBox.Show(_owner, "Güncelleme kontrolü/kurulumu başarısız oldu.\n\n" + ex.Message, ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (interactive) MessageBox.Show(_owner, "Güncelleme kontrolü/kurulumu başarısız oldu.\n\n" + ex.Message, ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -126,9 +113,8 @@ namespace TestKontrolProg
 
         private static Version GetCurrentVersion()
         {
-            var text = Application.ProductVersion;
             Version version;
-            return Version.TryParse(text, out version) ? version : new Version(0, 0, 0, 0);
+            return Version.TryParse(Application.ProductVersion, out version) ? version : new Version(0, 0, 0, 0);
         }
 
         private static int CompareVersions(string remote, Version current)
@@ -155,9 +141,7 @@ namespace TestKontrolProg
             var extractDir = Path.Combine(root, "extract_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(extractDir);
             ZipFile.ExtractToDirectory(zipPath, extractDir);
-
-            var exe = FindExecutable(extractDir);
-            if (exe == null) throw new InvalidOperationException("Güncelleme ZIP'i içinde TestKontrolProg.exe bulunamadı.");
+            if (FindExecutable(extractDir) == null) throw new InvalidOperationException("Güncelleme ZIP'i içinde TestKontrolProg.exe bulunamadı.");
 
             var targetDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var targetExe = Path.Combine(targetDir, "TestKontrolProg.exe");
@@ -170,7 +154,6 @@ namespace TestKontrolProg
             var buffers = new byte[manifest.Chunks.Count][];
             var gate = new object();
             long completed = 0;
-
             using (var semaphore = new SemaphoreSlim(4))
             {
                 var tasks = new List<Task>();
@@ -200,15 +183,11 @@ namespace TestKontrolProg
                             }
                             throw new InvalidOperationException("Güncelleme parçası eksik indirildi: " + chunk.File);
                         }
-                        finally
-                        {
-                            semaphore.Release();
-                        }
+                        finally { semaphore.Release(); }
                     }));
                 }
                 await Task.WhenAll(tasks);
             }
-
             using (var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None))
             {
                 foreach (var buffer in buffers) output.Write(buffer, 0, buffer.Length);
@@ -226,7 +205,6 @@ namespace TestKontrolProg
             var actualSize = new FileInfo(path).Length;
             if (expectedSize > 0 && actualSize != expectedSize)
                 throw new InvalidOperationException("Güncelleme boyutu doğrulanamadı: " + actualSize + "/" + expectedSize + " bayt.");
-
             using (var sha = SHA256.Create())
             using (var stream = File.OpenRead(path))
             {
@@ -262,7 +240,7 @@ try {
     if (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) { throw 'Test Kontrol kapatılamadı.' }
     New-Item -ItemType Directory -Force -Path $Target | Out-Null
     Get-ChildItem -LiteralPath $Target -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-    Copy-Item -LiteralPath (Join-Path $Source '*') -Destination $Target -Recurse -Force
+    Copy-Item -Path (Join-Path $Source '*') -Destination $Target -Recurse -Force
     if (-not (Test-Path -LiteralPath $Exe)) { throw 'Yeni TestKontrolProg.exe bulunamadı.' }
     Start-Process -FilePath $Exe -WorkingDirectory $Target
 } catch {
