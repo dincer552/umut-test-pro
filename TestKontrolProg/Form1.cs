@@ -42,6 +42,7 @@ namespace TestKontrolProg
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.Icon = Properties.Resources.logo;
+            TestKontrolUpdater.Initialize(this, button9);
 
             var items = Properties.Settings.Default.SavedText;
             if (items != null)
@@ -90,12 +91,12 @@ namespace TestKontrolProg
                 itemsToSave.Add(text);
             }
 
-            Properties.Settings.Default.SavedText = itemsToSave;
             if (UserControlForm != null)
             {
                 Properties.Settings.Default.UserName = UserControlForm.label1.Text;
             }
 
+            Properties.Settings.Default.SavedText = itemsToSave;
             Properties.Settings.Default.DefaultImageBase64 = Convert.ToBase64String(Datas.imgBytes);
             Properties.Settings.Default.Save();
         }
@@ -144,36 +145,6 @@ namespace TestKontrolProg
         {
         }
 
-        public void SetLabelFanKontrolText(string text = "Kontrol Edildi")
-        {
-            label12.Text = text;
-            label12.BackColor = System.Drawing.Color.Chartreuse;
-        }
-
-        public void SetLabelDamperKontrolText(string text = "Kontrol Edildi")
-        {
-            label13.Text = text;
-            label13.BackColor = System.Drawing.Color.Chartreuse;
-        }
-
-        public void SetLabelModulKontrolText(string text = "Kontrol Edildi")
-        {
-            label14.Text = text;
-            label14.BackColor = System.Drawing.Color.Chartreuse;
-        }
-
-        public void SetLabelFiltreKontrolText(string text = "Kontrol Edildi")
-        {
-            label15.Text = text;
-            label15.BackColor = System.Drawing.Color.Chartreuse;
-        }
-
-        public void SetLabelSensorKontrolText(string text = "Kontrol Edildi")
-        {
-            label16.Text = text;
-            label16.BackColor = System.Drawing.Color.Chartreuse;
-        }
-
         private void button8_Click(object sender, EventArgs e)
         {
             MessageBox.Show("Boş Buton");
@@ -212,18 +183,7 @@ namespace TestKontrolProg
 
         private void button9_Click(object sender, EventArgs e)
         {
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "https://github.com/dincer552/umut-test-pro",
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Güncelleme sayfası açılamadı.\n\n" + ex.Message, "Güncelleme", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
+            // GÜNCELLE button is wired to TestKontrolUpdater in the constructor.
         }
     }
 }
