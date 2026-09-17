@@ -29,8 +29,10 @@ jobs:
         run: |
           $path = 'TestKontrolProg/Properties/AssemblyInfo.cs'
           $text = Get-Content -Path $path -Raw -Encoding UTF8
-          $text = [regex]::Replace($text, '\[assembly: AssemblyVersion\("[^"]+"\)\]', "[assembly: AssemblyVersion(\"$env:BUILD_VERSION\")]")
-          $text = [regex]::Replace($text, '\[assembly: AssemblyFileVersion\("[^"]+"\)\]', "[assembly: AssemblyFileVersion(\"$env:BUILD_VERSION\")]")
+          $versionAssembly = '[assembly: AssemblyVersion("' + $env:BUILD_VERSION + '")]'
+          $versionFile = '[assembly: AssemblyFileVersion("' + $env:BUILD_VERSION + '")]'
+          $text = [regex]::Replace($text, '\[assembly: AssemblyVersion\("[^"]+"\)\]', $versionAssembly)
+          $text = [regex]::Replace($text, '\[assembly: AssemblyFileVersion\("[^"]+"\)\]', $versionFile)
           Set-Content -Path $path -Value $text -Encoding UTF8
           Get-Content -Path $path | Select-String 'Assembly(Version|FileVersion)'
 
