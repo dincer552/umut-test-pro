@@ -31,8 +31,8 @@ namespace TestKontrolProg
             _c600ReadButton = new Button
             {
                 Name = "buttonC600Read",
-                Text = "Verileri Çek",
-                Size = new Size(100, 30),
+                Text = "C600 Verileri Çek",
+                Size = new Size(120, 30),
                 Location = new System.Drawing.Point(282, 360),
                 UseVisualStyleBackColor = true
             };
@@ -43,17 +43,78 @@ namespace TestKontrolProg
         private async void C600ReadButton_Click(object sender, EventArgs e)
         {
             if (_c600ReadButton != null)
+            {
                 _c600ReadButton.Enabled = false;
+                _c600ReadButton.Text = "Okunuyor...";
+            }
 
             try
             {
-                string value = await C600Communication.ReadValueAsync("SUPPLY_AIR_TEMP");
-                textBox6.Text = value;
+                var fields = new Dictionary<TextBox, string>
+                {
+                    { textBox1, "5-TMPVAL" },          // Fresh air temperature
+                    { textBox2, "FRESHHUM" },           // Fresh air humidity/function block
+                    { textBox6, "SUPPLY_AIR_TEMP" },    // Supply air temperature
+                    { textBox7, "1-HUMVAL" },           // Supply air humidity
+                    { textBox11, "3-TMPVAL" },          // Return air temperature
+                    { textBox12, "HUMVAL" },            // Return air humidity
+                    { textBox13, "CO2VAL" },            // Return air CO2
+                    { textBox16, "TMPVAL" },            // Exhaust air temperature
+                    { textBox19, "1-TMPVAL" },          // After coil temperature
+                    { textBox22, "7-TMPVAL" },          // Mixing air temperature
+                    { textBox25, "ROOM_TEMP" },         // Room temperature
+                    { textBox26, "ROOM_HUM" },          // Room humidity
+                    { textBox28, "1-CO2VALUE" },        // Return CO2 sensor
+                    { textBox29, "TEMPCONT_WATERT" }    // Water temperature
+                };
+
+                var tasks = fields.Select(async item =>
+                {
+                    try
+                    {
+                        string value = await C600Communication.ReadValueAsync(item.Value);
+                        return new KeyValuePair<TextBox, string>(item.Key, value);
+                    }
+                    catch
+                    {
+                        return new KeyValuePair<TextBox, string>(item.Key, "-");
+                    }
+                }).ToArray();
+
+                KeyValuePair<TextBox, string>[] results = await Task.WhenAll(tasks);
+
+                int ok = 0;
+                foreach (var result in results)
+                {
+                    result.Key.Text = result.Value;
+                    if (result.Value != "-")
+                        ok++;
+                }
+
+                // GenericJSON'da karşılığı bulunmayan alanlar bilinçli olarak boş bırakılır.
+                textBox3.Text = "-";   // Fresh CO2
+                textBox8.Text = "-";   // Supply CO2
+                textBox17.Text = "-";  // Exhaust humidity
+                textBox18.Text = "-";  // Exhaust CO2
+                textBox20.Text = "-";  // After coil humidity
+                textBox21.Text = "-";  // After coil CO2
+                textBox23.Text = "-";  // Mixing humidity
+                textBox24.Text = "-";  // Mixing CO2
+                textBox27.Text = "-";  // Room sensor 2
+                textBox30.Text = "-";  // Return CO2 air temperature
+                textBox31.Text = "-";  // Return CO2 air CO2 (not a duplicate)
+
+                MessageBox.Show(
+                    ok + " adet C600 değeri okundu.\n\n" +
+                    "Bağlantı: SCOPE / 127.0.0.1:4242 / USB",
+                    "C600 Haberleşme",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    "C600 / SCOPE üzerinden Supply Air sıcaklığı okunamadı.\n\n" + ex.Message,
+                    "C600 / SCOPE üzerinden veriler okunamadı.\n\n" + ex.Message,
                     "C600 Haberleşme",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
@@ -61,7 +122,10 @@ namespace TestKontrolProg
             finally
             {
                 if (_c600ReadButton != null)
+                {
                     _c600ReadButton.Enabled = true;
+                    _c600ReadButton.Text = "C600 Verileri Çek";
+                }
             }
         }
 
