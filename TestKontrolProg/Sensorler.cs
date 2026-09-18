@@ -139,17 +139,20 @@ namespace TestKontrolProg
             if (string.IsNullOrWhiteSpace(response))
                 throw new InvalidOperationException("SCOPE boş cevap döndürdü.");
 
-            Match match = Regex.Match(response,
-                "\\\"value\\\"\\s*:\\s*(-?\\d+(?:[.,]\\d+)?)",
+            Match match = Regex.Match(
+                response,
+                "\"value\"\\s*:\\s*(-?\\d+(?:[.,]\\d+)?)",
                 RegexOptions.IgnoreCase);
 
             if (!match.Success)
-                throw new InvalidOperationException("SCOPE cevabında 'value' alanı bulunamadı: " + response);
+                throw new InvalidOperationException(
+                    "SCOPE cevabında 'value' alanı bulunamadı: " + response);
 
             string raw = match.Groups[1].Value.Replace(',', '.');
             double number;
             if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out number))
-                throw new InvalidOperationException("Okunan değer sayı olarak çözümlenemedi: " + raw);
+                throw new InvalidOperationException(
+                    "Okunan değer sayı olarak çözümlenemedi: " + raw);
 
             return number.ToString("0.##", CultureInfo.InvariantCulture);
         }
